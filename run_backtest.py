@@ -1,12 +1,8 @@
 # main
 
-import os
-import sys
 import pandas as pd
 import yfinance as yf
 import matplotlib.pyplot as plt
-
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "src"))
 
 from backtester.data import YFinanceDataHandler
 from backtester.strategy import MovingAverageCrossoverStrategy

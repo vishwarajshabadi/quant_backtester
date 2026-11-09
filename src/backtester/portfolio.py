@@ -1,7 +1,7 @@
 # tracks portfolio
 
 from collections import deque
-from typing import Any, Deque, Dict, List, Optional
+from typing import Deque, Dict, Optional
 
 import numpy as np
 import pandas as pd
@@ -21,7 +21,7 @@ class Portfolio:
 
         self.true_range_history: Dict[str, Deque[float]] = {}
         self.previous_close: Dict[str, float] = {}
-        self.equity_curve_history: List[Dict[str, Any]] = []
+        self.equity_curve_history: Dict[str, float] = {}
 
     def _get_total_equity(self) -> float:
         holdings_value = sum(
@@ -47,12 +47,7 @@ class Portfolio:
 
         self.previous_close[sym] = event.close
 
-        self.equity_curve_history.append(
-            {
-                "timestamp": event.timestamp,
-                "total_equity": self._get_total_equity(),
-            }
-        )
+        self.equity_curve_history[event.timestamp] = self._get_total_equity()
 
     def update_signal(self, event: SignalEvent) -> Optional[OrderEvent]:
         sym = event.symbol
@@ -71,11 +66,15 @@ class Portfolio:
         max_notional_qty = int((equity * self.MAX_NOTIONAL_ALLOCATION) / price)
 
         if atr > 0:
-            target_qty = max(
-                1, min(int((equity * self.RISK_ALLOCATION) / atr), max_notional_qty)
-            )
+            target_qty = min(int((equity * self.RISK_ALLOCATION) / atr), max_notional_qty)
         else:
-            target_qty = max(1, max_notional_qty)
+            target_qty = max_notional_qty
+
+        affordable = int(self.current_cash / (price * (1.0 + 0.0007)))
+        target_qty = min(target_qty, affordable)
+
+        if target_qty <= 0:
+            return None
 
         if event.signal_type == "LONG" and qty == 0:
             return OrderEvent(
@@ -104,8 +103,10 @@ class Portfolio:
             )
 
     def get_equity_curve(self) -> pd.DataFrame:
-        df = pd.DataFrame(self.equity_curve_history)
+        df = pd.DataFrame(
+            self.equity_curve_history.items(),
+            columns=["timestamp", "total_equity"],
+        ).set_index("timestamp")
         if not df.empty:
-            df = df.groupby("timestamp").last()
             df.index = pd.to_datetime(df.index)
         return df

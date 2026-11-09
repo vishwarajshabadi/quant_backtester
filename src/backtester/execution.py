@@ -14,11 +14,12 @@ class SimulatedExecutionHandler:
     def update_market_price(self, event: DataEvent) -> None:
         self.current_prices[event.symbol] = event.close
 
-    def execute_order(self, event: OrderEvent, timestamp: str) -> FillEvent | None:
-        if event.symbol not in self.current_prices:
+    def execute_order(
+        self, event: OrderEvent, timestamp: str, fill_price: float | None = None
+    ) -> FillEvent | None:
+        price = fill_price if fill_price is not None else self.current_prices.get(event.symbol)
+        if price is None:
             return None
-
-        price = self.current_prices[event.symbol]
         direction_mult = 1.0 if event.direction == "BUY" else -1.0
 
         slippage = price * self.slippage_pct * direction_mult

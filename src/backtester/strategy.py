@@ -25,14 +25,12 @@ class MovingAverageCrossoverStrategy(Strategy):
         self.fast_window = fast_window
         self.slow_window = slow_window
         self.history: Dict[str, Deque[float]] = {}
-        self.current_position: Dict[str, str] = {}
 
     def calculate_signal(self, event: DataEvent) -> Optional[SignalEvent]:
         sym = event.symbol
 
         if sym not in self.history:
             self.history[sym] = deque(maxlen=self.slow_window)
-            self.current_position[sym] = "FLAT"
 
         self.history[sym].append(event.close)
 
@@ -43,16 +41,13 @@ class MovingAverageCrossoverStrategy(Strategy):
         fast_ma, slow_ma = np.mean(prices[-self.fast_window :]), np.mean(
             prices[-self.slow_window :]
         )
-        pos = self.current_position[sym]
 
-        if fast_ma > slow_ma and pos != "LONG":
-            self.current_position[sym] = "LONG"
+        if fast_ma > slow_ma:
             return SignalEvent(
                 timestamp=event.timestamp, symbol=sym, signal_type="LONG"
             )
 
-        if fast_ma < slow_ma and pos == "LONG":
-            self.current_position[sym] = "FLAT"
+        if fast_ma < slow_ma:
             return SignalEvent(
                 timestamp=event.timestamp, symbol=sym, signal_type="EXIT"
             )

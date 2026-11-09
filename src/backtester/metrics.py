@@ -33,13 +33,9 @@ class PerformanceEngine:
             return 0.0
 
         excess = rets - (risk_free_rate / periods)
-        downside = excess[excess < 0]
+        down_vol = float(np.sqrt(np.mean(np.minimum(excess, 0.0) ** 2)))
 
-        if (
-            downside.empty
-            or (down_vol := float(downside.std(ddof=1))) == 0
-            or np.isnan(down_vol)
-        ):
+        if down_vol == 0 or np.isnan(down_vol):
             return 0.0
         return float((excess.mean() / down_vol) * np.sqrt(periods))
 

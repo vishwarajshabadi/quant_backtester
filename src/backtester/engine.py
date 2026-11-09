@@ -1,7 +1,7 @@
 # runs the engine
 
 from collections import deque
-from typing import Deque, Optional
+from typing import Deque, Dict, Optional
 
 from backtester.data import AbstractDataHandler
 from backtester.events import DataEvent, Event, FillEvent, OrderEvent, SignalEvent
@@ -26,6 +26,7 @@ class BacktestEngine:
         self.execution_handler = execution_handler
         self.trade_logger = trade_logger
         self.events: Deque[Event] = deque()
+        self.pending_orders: Dict[str, OrderEvent] = {}
 
     def run(self) -> None:
         print("Spinning up engine...")
@@ -36,6 +37,13 @@ class BacktestEngine:
                 event = self.events.popleft()
 
                 if isinstance(event, DataEvent):
+                    pending = self.pending_orders.pop(event.symbol, None)
+                    if pending is not None:
+                        if fill := self.execution_handler.execute_order(
+                            pending, event.timestamp, fill_price=event.open
+                        ):
+                            self.events.append(fill)
+
                     self.portfolio.update_market_price(event)
                     self.execution_handler.update_market_price(event)
                     if sig := self.strategy.calculate_signal(event):
@@ -46,9 +54,7 @@ class BacktestEngine:
                         self.events.append(order)
 
                 elif isinstance(event, OrderEvent):
-                    ts = self.data_handler.get_latest_bar(event.symbol).timestamp
-                    if fill := self.execution_handler.execute_order(event, ts):
-                        self.events.append(fill)
+                    self.pending_orders[event.symbol] = event
 
                 elif isinstance(event, FillEvent):
                     if self.trade_logger:
